@@ -99,10 +99,10 @@ test('failed runtime health check preserves the previous active version', async 
   }
 });
 
-test('compute runtime installs both worker and Cloud Function dependency locks', async () => {
+test('compute runtime installs the Codex Runner and Functions workspace from one root lock', async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sitex-compute-installer-'));
   const archivePath = path.join(tempRoot, 'sitex-compute-runtime-0.2.0.tgz');
-  const archive = Buffer.from('compute runtime with two lockfiles');
+  const archive = Buffer.from('compute runtime with one workspace lockfile');
   const installedRoots: string[] = [];
   try {
     await writeFile(archivePath, archive);
@@ -121,9 +121,8 @@ test('compute runtime installs both worker and Cloud Function dependency locks',
       archivePath,
       dataRoot: path.join(tempRoot, 'data'),
       extract: async (_archiveFile, destination) => {
-        await mkdir(path.join(destination, 'functions'), { recursive: true });
+        await mkdir(destination, { recursive: true });
         await writeFile(path.join(destination, 'package-lock.json'), '{"lockfileVersion":3}');
-        await writeFile(path.join(destination, 'functions/package-lock.json'), '{"lockfileVersion":3}');
       },
       installDependencies: async (directory) => {
         installedRoots.push(path.relative(tempRoot, directory).split(path.sep).join('/'));
@@ -131,9 +130,8 @@ test('compute runtime installs both worker and Cloud Function dependency locks',
       healthCheck: async () => {},
     });
 
-    assert.equal(installedRoots.length, 2);
+    assert.equal(installedRoots.length, 1);
     assert.match(installedRoots[0]!, /\.installing-0\.2\.0-[^/]+$/);
-    assert.match(installedRoots[1]!, /\.installing-0\.2\.0-[^/]+\/functions$/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

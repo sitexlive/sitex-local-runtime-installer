@@ -34,7 +34,7 @@ export function buildComponentManifest(input: ComponentManifestInput) {
     runtime: {
       nodeMajor: 22,
       install: 'npm-ci',
-      installRoots: input.component === 'compute' ? ['.', 'functions'] : ['.'],
+      installRoots: ['.'],
       dependenciesIncluded: false,
     },
   } as const;

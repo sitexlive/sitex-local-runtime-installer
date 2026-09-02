@@ -8,7 +8,7 @@ The release is deliberately split into three independently versioned parts:
 | --- | --- | --- |
 | Host | Electron console, service supervisor, updater | Velopack stable/beta channel |
 | MCP Runtime | Local stdio MCP server and shared MCP packages | Versioned manifest, SHA-256 verification, atomic activation |
-| Compute Runtime | AI Agent workers, Business Worker and Cloud Function server source | Versioned manifest, SHA-256 verification, local `npm ci`, atomic activation |
+| Compute Runtime | Codex Runner, Business Worker and Cloud Function server source | Versioned manifest, SHA-256 verification, local `npm ci`, atomic activation |
 
 Node.js dependencies are not embedded in the Host or runtime archives. The installed Host downloads the pinned Node 22 runtime and runs `npm ci` against published lockfiles on the target computer. This keeps Host and MCP updates small while allowing MCP and compute to be released separately.
 
@@ -44,22 +44,25 @@ npm run build
 ```bash
 npm run release -- runtime \
   --component mcp \
-  --version 0.2.0 \
+  --version 0.2.1 \
   --channel stable \
-  --worker-root ../sitex-ai-worker \
+  --worker-root ../sitex-hermes-server \
   --mcp-core-root ../sitex-mcp-core \
   --mcp-server-root ../sitex-mcp-server \
   --output-root out/releases
 ```
+
+The retired AI Workflow worker and `ai_sessions/workflow-drafts` are deliberately excluded. The Compute Runtime contains the event-based SiteX Codex Runner instead, while MCP source remains only in the independently released MCP Runtime.
 
 ## Stage an independent compute release
 
 ```bash
 npm run release -- runtime \
   --component compute \
-  --version 0.2.0 \
+  --version 0.2.1 \
   --channel stable \
-  --worker-root ../sitex-ai-worker \
+  --worker-root ../sitex-hermes-server \
+  --codex-runner-root ../sitex-codex-runner \
   --mcp-core-root ../sitex-mcp-core \
   --mcp-server-root ../sitex-mcp-server \
   --functions-root ../Sitex-Firestore-Api/functions \
@@ -76,7 +79,7 @@ First create the unpacked Electron application on its target operating system. T
 npm run release -- host \
   --platform win32 \
   --arch x64 \
-  --version 0.2.0 \
+  --version 0.2.1 \
   --channel stable \
   --pack-dir '../sitex-ai-worker/out/Sitex Worker Console-win32-x64' \
   --output-dir out/releases/host

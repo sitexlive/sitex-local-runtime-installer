@@ -46,3 +46,17 @@ test('component manifest rejects an invalid SHA-256 before publication', () => {
     (error) => (error as NodeJS.ErrnoException).code === 'INVALID_ARTIFACT_SHA256',
   );
 });
+
+test('compute manifest installs its Codex Runner and Functions workspaces from the root lock', () => {
+  const manifest = buildComponentManifest({
+    component: 'compute',
+    version: '0.2.1',
+    channel: 'stable',
+    publishedAt: '2026-09-02T04:00:00.000Z',
+    fileName: 'sitex-compute-runtime-0.2.1.tgz',
+    sha256: 'b'.repeat(64),
+    size: 23456,
+  });
+
+  assert.deepEqual(manifest.runtime.installRoots, ['.']);
+});

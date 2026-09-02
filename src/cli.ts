@@ -60,7 +60,10 @@ async function runtimeCommand(options: Record<string, string>) {
     workerRoot: required(options, 'worker-root'),
     mcpCoreRoot: required(options, 'mcp-core-root'),
     mcpServerRoot: required(options, 'mcp-server-root'),
-    ...(component === 'compute' ? { functionsRoot: required(options, 'functions-root') } : {}),
+    ...(component === 'compute' ? {
+      codexRunnerRoot: required(options, 'codex-runner-root'),
+      functionsRoot: required(options, 'functions-root'),
+    } : {}),
     destination: sourceRoot,
   });
   const result = await stageRuntimeRelease({ component, version, channel, sourceRoot, outputRoot });
