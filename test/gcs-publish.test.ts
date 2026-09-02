@@ -15,6 +15,7 @@ test('Google Cloud upload publishes immutable artifacts before current manifests
     await writeFile(path.join(root, 'runtime/mcp/stable/0.2.0/archive.tgz'), 'archive');
     await writeFile(path.join(root, 'runtime/mcp/stable/0.2.0/manifest.json'), '{}');
     await writeFile(path.join(root, 'runtime/mcp/stable/current.json'), '{}');
+    await writeFile(path.join(root, 'host/Sitex.WorkerConsole-win-x64-stable-Setup.exe'), 'setup');
     await writeFile(path.join(root, 'host/releases.win-x64-stable.json'), '{}');
     await writeFile(path.join(root, '.staging/mcp/package.json'), '{}');
 
@@ -27,9 +28,11 @@ test('Google Cloud upload publishes immutable artifacts before current manifests
       'gs://sitexpos.appspot.com/worker-console/releases/runtime/mcp/stable/0.2.0/archive.tgz',
       'gs://sitexpos.appspot.com/worker-console/releases/runtime/mcp/stable/0.2.0/manifest.json',
       'gs://sitexpos.appspot.com/worker-console/releases/host/releases.win-x64-stable.json',
+      'gs://sitexpos.appspot.com/worker-console/releases/host/Sitex.WorkerConsole-win-x64-stable-Setup.exe',
       'gs://sitexpos.appspot.com/worker-console/releases/runtime/mcp/stable/current.json',
     ]);
-    assert.equal(plan.at(-2)?.publishLast, true, 'Velopack release indexes are mutable channel pointers');
+    assert.equal(plan.at(-3)?.publishLast, true, 'Velopack release indexes are mutable channel pointers');
+    assert.equal(plan.at(-2)?.publishLast, true, 'Velopack installer aliases are mutable channel pointers');
     assert.equal(plan.at(-1)?.publishLast, true);
     assert.equal(plan.some((step) => step.destination.includes('/.staging/')), false);
   } finally {
@@ -41,11 +44,13 @@ test('Google Cloud publisher gives current manifests no-cache headers', async ()
   const calls: string[][] = [];
   await publishGcsUploadPlan([
     { source: '/out/archive.tgz', destination: 'gs://bucket/archive.tgz', publishLast: false },
+    { source: '/out/stable-Setup.exe', destination: 'gs://bucket/stable-Setup.exe', publishLast: true },
     { source: '/out/current.json', destination: 'gs://bucket/current.json', publishLast: true },
   ], async (args) => { calls.push(args); });
 
   assert.deepEqual(calls, [
     ['storage', 'cp', '--predefined-acl=publicRead', '--cache-control=public,max-age=31536000,immutable', '/out/archive.tgz', 'gs://bucket/archive.tgz'],
+    ['storage', 'cp', '--predefined-acl=publicRead', '--cache-control=no-store,max-age=0', '/out/stable-Setup.exe', 'gs://bucket/stable-Setup.exe'],
     ['storage', 'cp', '--predefined-acl=publicRead', '--cache-control=no-store,max-age=0', '/out/current.json', 'gs://bucket/current.json'],
   ]);
 });

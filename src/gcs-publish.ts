@@ -24,7 +24,9 @@ async function listFiles(directory: string): Promise<string[]> {
 
 function isMutableReleasePointer(relative: string): boolean {
   const basename = path.posix.basename(relative);
-  return basename === 'current.json' || /^releases\..+\.json$/.test(basename);
+  return basename === 'current.json'
+    || /^releases\..+\.json$/.test(basename)
+    || /(?:-Setup\.exe|-Portable\.zip|\.AppImage)$/i.test(basename);
 }
 
 export async function buildGcsUploadPlan(input: GcsUploadPlanInput): Promise<GcsUploadStep[]> {

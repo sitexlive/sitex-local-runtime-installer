@@ -7,8 +7,8 @@ The release is deliberately split into three independently versioned parts:
 | Part | Contains | Update mechanism |
 | --- | --- | --- |
 | Host | Electron console, service supervisor, updater | Velopack stable/beta channel |
-| MCP Runtime | Local stdio MCP server and shared MCP packages | Signed manifest, SHA-256 verification, atomic activation |
-| Compute Runtime | AI Agent workers, Business Worker and Cloud Function server source | Signed manifest, SHA-256 verification, local `npm ci`, atomic activation |
+| MCP Runtime | Local stdio MCP server and shared MCP packages | Versioned manifest, SHA-256 verification, atomic activation |
+| Compute Runtime | AI Agent workers, Business Worker and Cloud Function server source | Versioned manifest, SHA-256 verification, local `npm ci`, atomic activation |
 
 Node.js dependencies are not embedded in the Host or runtime archives. The installed Host downloads the pinned Node 22 runtime and runs `npm ci` against published lockfiles on the target computer. This keeps Host and MCP updates small while allowing MCP and compute to be released separately.
 
@@ -19,6 +19,15 @@ Node.js dependencies are not embedded in the Host or runtime archives. The insta
 - Release channels: `stable` and `beta`
 
 macOS is intentionally outside this project's release contract.
+
+## Current stable downloads
+
+- [Windows x64 Setup](https://storage.googleapis.com/sitexpos.appspot.com/worker-console/releases/host/Sitex.WorkerConsole-win-x64-stable-Setup.exe)
+- [Linux x64 AppImage](https://storage.googleapis.com/sitexpos.appspot.com/worker-console/releases/host/Sitex.WorkerConsole-linux-x64-stable.AppImage)
+- [MCP stable manifest](https://storage.googleapis.com/sitexpos.appspot.com/worker-console/releases/runtime/mcp/stable/current.json)
+- [Compute stable manifest](https://storage.googleapis.com/sitexpos.appspot.com/worker-console/releases/runtime/compute/stable/current.json)
+
+The Windows and Linux links are mutable channel aliases and are published with caching disabled. Versioned packages and runtime archives use immutable caching.
 
 ## Development
 
