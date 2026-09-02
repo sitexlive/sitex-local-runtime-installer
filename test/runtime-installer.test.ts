@@ -125,7 +125,9 @@ test('compute runtime installs both worker and Cloud Function dependency locks',
         await writeFile(path.join(destination, 'package-lock.json'), '{"lockfileVersion":3}');
         await writeFile(path.join(destination, 'functions/package-lock.json'), '{"lockfileVersion":3}');
       },
-      installDependencies: async (directory) => { installedRoots.push(path.relative(tempRoot, directory)); },
+      installDependencies: async (directory) => {
+        installedRoots.push(path.relative(tempRoot, directory).split(path.sep).join('/'));
+      },
       healthCheck: async () => {},
     });
 
