@@ -293,12 +293,23 @@ export async function prepareRuntimeSource(input: PrepareRuntimeSourceInput): Pr
   }
 
   const workerPackage = JSON.parse(await readFile(path.join(input.workerRoot, 'package.json'), 'utf8'));
-  const dependencies = input.component === 'mcp' ? { ...(workerPackage.dependencies || {}) } : {};
+  const dependencies: Record<string, string> = {};
   if (input.component === 'mcp') {
+    const availableDependencies = {
+      ...(workerPackage.dependencies || {}),
+      ...(workerPackage.devDependencies || {}),
+    } as Record<string, string>;
+    const dependencyNames = workerPackage.sitexRuntimeDependencies?.mcp;
+    if (!Array.isArray(dependencyNames) || dependencyNames.length === 0) {
+      throw new Error('Worker package must declare sitexRuntimeDependencies.mcp.');
+    }
+    for (const name of dependencyNames) {
+      const version = availableDependencies[name];
+      if (!version) throw new Error(`MCP runtime dependency ${name} has no declared version.`);
+      dependencies[name] = version;
+    }
     dependencies['@sitex/mcp-core'] = 'file:vendor/sitex-mcp-core';
     dependencies['@sitex/mcp-server'] = 'file:vendor/sitex-mcp-server';
-    delete dependencies.velopack;
-    delete dependencies.vue;
   }
   await writeFile(path.join(input.destination, 'package.json'), `${JSON.stringify({
     name: `@sitex/${input.component}-runtime`,

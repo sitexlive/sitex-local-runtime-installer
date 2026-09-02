@@ -44,7 +44,7 @@ npm run build
 ```bash
 npm run release -- runtime \
   --component mcp \
-  --version 0.2.1 \
+  --version 0.2.2 \
   --channel stable \
   --worker-root ../sitex-hermes-server \
   --mcp-core-root ../sitex-mcp-core \
@@ -79,7 +79,7 @@ First create the unpacked Electron application on its target operating system. T
 npm run release -- host \
   --platform win32 \
   --arch x64 \
-  --version 0.2.1 \
+  --version 0.2.2 \
   --channel stable \
   --pack-dir '../sitex-ai-worker/out/Sitex Worker Console-win32-x64' \
   --output-dir out/releases/host

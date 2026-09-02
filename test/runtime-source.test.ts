@@ -27,10 +27,21 @@ test('MCP source staging vendors local packages and excludes dependencies and se
     await writeFile(path.join(workerRoot, '.env'), 'SECRET=never');
     await writeFile(path.join(workerRoot, 'package.json'), JSON.stringify({
       dependencies: {
+        velopack: '1.2.0',
+      },
+      devDependencies: {
+        '@modelcontextprotocol/sdk': '^1.17.5',
         '@sitex/mcp-core': 'file:../sitex-mcp-core',
         '@sitex/mcp-server': 'file:../sitex-mcp-server',
+        express: '^4.19.2',
         firebase: '^12.0.0',
-        velopack: '1.2.0',
+        'firebase-admin': '^12.7.0',
+      },
+      sitexRuntimeDependencies: {
+        mcp: [
+          '@modelcontextprotocol/sdk', '@sitex/mcp-core', '@sitex/mcp-server',
+          'express', 'firebase', 'firebase-admin',
+        ],
       },
     }));
     for (const [packageRoot, name] of [[mcpCoreRoot, 'mcp-core'], [mcpServerRoot, 'mcp-server']] as const) {
@@ -52,6 +63,10 @@ test('MCP source staging vendors local packages and excludes dependencies and se
     const packageJson = JSON.parse(await readFile(path.join(destination, 'package.json'), 'utf8'));
     assert.equal(packageJson.dependencies['@sitex/mcp-core'], 'file:vendor/sitex-mcp-core');
     assert.equal(packageJson.dependencies['@sitex/mcp-server'], 'file:vendor/sitex-mcp-server');
+    assert.equal(packageJson.dependencies['@modelcontextprotocol/sdk'], '^1.17.5');
+    assert.equal(packageJson.dependencies.express, '^4.19.2');
+    assert.equal(packageJson.dependencies.firebase, '^12.0.0');
+    assert.equal(packageJson.dependencies['firebase-admin'], '^12.7.0');
     assert.equal(packageJson.dependencies.velopack, undefined);
     await access(path.join(destination, 'vendor/sitex-mcp-core/src/index.js'));
     await access(path.join(destination, 'src/mcp/stdio.cjs'));
