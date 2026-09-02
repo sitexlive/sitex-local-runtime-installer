@@ -1,0 +1,27 @@
+{
+  "name": "@sitex/local-runtime-installer",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Open-source Windows and Linux installer/release control plane for the Sitex local runner and runtimes.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "sitex-release": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "npm run test && npm run typecheck",
+    "release": "tsx src/cli.ts",
+    "test": "tsx --test test/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tar": "^7.5.22",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}
