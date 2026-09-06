@@ -74,6 +74,67 @@ const COMPUTE_FUNCTION_ENTRYPOINTS = [
   'email/emailSyncFailureNotification.js',
 ];
 
+// The Business Worker (`loadModule`) and the MCP host (`requireFunctionsModule`)
+// pull Cloud Functions modules by string path at runtime, so the require-graph
+// walk above never sees them. Both processes read the SAME `functions/` tree —
+// the Host points the MCP runtime at the active compute release — which is why
+// a compute release staged from the email-sync closure alone left the MCP host
+// failing with "Cannot find module .../shared/vendor/packages/ai-core/..." on
+// every machine that did not also have a full source checkout beside it.
+const FUNCTIONS_MODULE_LITERAL = /(?:requireFunctionsModule|loadModule)\(\s*(['"])([^'"]+)\1/g;
+
+async function resolveFunctionsEntry(functionsRoot: string, specifier: string): Promise<string | null> {
+  return resolveLocalModule(path.join(functionsRoot, 'package.json'), `./${specifier}`);
+}
+
+async function listSourceFiles(root: string): Promise<string[]> {
+  const files: string[] = [];
+  const pending = [root];
+  while (pending.length > 0) {
+    const directory = pending.pop();
+    if (!directory) continue;
+    let entries;
+    try {
+      entries = await readdir(directory, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const entryPath = path.join(directory, entry.name);
+      if (!safeSourcePath(root, entryPath)) continue;
+      if (entry.isDirectory()) pending.push(entryPath);
+      else if (/\.(?:c|m)?js$/i.test(entry.name)) files.push(entryPath);
+    }
+  }
+  return files;
+}
+
+/**
+ * Functions modules referenced by string from the given source roots, limited
+ * to those that exist. Placeholders (`node_modules/<pkg>`) and lazy references
+ * to modules the Functions tree no longer carries are skipped rather than
+ * failing the stage: they only throw in Cloud when that retired path is called.
+ */
+export async function discoverFunctionsEntrypoints(sourceRoots: string[], functionsRoot: string): Promise<string[]> {
+  const specifiers = new Set<string>();
+  for (const root of sourceRoots) {
+    for (const file of await listSourceFiles(root)) {
+      const source = await readFile(file, 'utf8');
+      for (const match of source.matchAll(FUNCTIONS_MODULE_LITERAL)) {
+        const specifier = String(match[2] ?? '').replace(/\\/g, '/').replace(/^\.\//, '');
+        if (!specifier || specifier.startsWith('node_modules/') || specifier.includes('<')) continue;
+        specifiers.add(specifier);
+      }
+    }
+  }
+  const entrypoints: string[] = [];
+  for (const specifier of [...specifiers].sort()) {
+    const resolved = await resolveFunctionsEntry(functionsRoot, specifier);
+    if (resolved) entrypoints.push(path.relative(functionsRoot, resolved).split(path.sep).join('/'));
+  }
+  return entrypoints;
+}
+
 const NODE_BUILTINS = new Set(builtinModules.flatMap((name) => [name, `node:${name}`]));
 
 async function isFile(filePath: string): Promise<boolean> {
@@ -104,13 +165,16 @@ async function resolveLocalModule(importer: string, specifier: string): Promise<
 
 function moduleSpecifiers(source: string): string[] {
   const results = new Set<string>();
+  // Prose in a block comment ("letting an import "fix" either…") is not a
+  // dependency; strip those and only accept import/export at a statement start.
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, '');
   const patterns = [
     /require\(\s*(['"])([^'"]+)\1\s*\)/g,
     /import\(\s*(['"])([^'"]+)\1\s*\)/g,
-    /(?:import|export)\s+(?:[^'";]+?\s+from\s+)?(['"])([^'"]+)\1/g,
+    /^\s*(?:import|export)\s+(?:[^'";]+?\s+from\s+)?(['"])([^'"]+)\1/gm,
   ];
   for (const pattern of patterns) {
-    for (const match of source.matchAll(pattern)) {
+    for (const match of code.matchAll(pattern)) {
       if (match[2]) results.add(match[2]);
     }
   }
@@ -252,9 +316,11 @@ async function assertNoRetiredRuntimeSource(root: string): Promise<void> {
 
 function defaultWriteLockfile(directory: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    // Node 22 refuses to spawn a .cmd shim without a shell (EINVAL); the
+    // arguments are fixed literals, so a shell adds no injection surface.
     execFile(process.platform === 'win32' ? 'npm.cmd' : 'npm', [
       'install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund',
-    ], { cwd: directory, maxBuffer: 16 * 1024 * 1024 }, (error, _stdout, stderr) => {
+    ], { cwd: directory, maxBuffer: 16 * 1024 * 1024, shell: process.platform === 'win32' }, (error, _stdout, stderr) => {
       if (error) reject(new Error(`Could not generate runtime lockfile: ${String(stderr || error.message).trim()}`));
       else resolve();
     });
@@ -273,12 +339,23 @@ export async function prepareRuntimeSource(input: PrepareRuntimeSourceInput): Pr
       'src/business-worker-runtime.js',
       'src/functionsBridge.js',
     ]);
+    // The worker's own require graph (job registry, process lock, schedulers…)
+    // — the fixed list above is the floor, not the whole worker.
+    await copyLocalModuleClosure(input.workerRoot, input.destination, ['bin/sitex-business-worker.js']);
     await copySafe(path.join(input.codexRunnerRoot, 'src'), path.join(input.destination, 'codex-runner', 'src'));
     await copySafe(path.join(input.codexRunnerRoot, 'package.json'), path.join(input.destination, 'codex-runner', 'package.json'));
+    const discoveredEntrypoints = await discoverFunctionsEntrypoints(
+      [
+        path.join(input.workerRoot, 'src'),
+        path.join(input.mcpCoreRoot, 'src'),
+        path.join(input.mcpServerRoot, 'src'),
+      ],
+      input.functionsRoot,
+    );
     const functionsDependencies = await copyLocalModuleClosure(
       input.functionsRoot,
       path.join(input.destination, 'functions'),
-      COMPUTE_FUNCTION_ENTRYPOINTS,
+      [...new Set([...COMPUTE_FUNCTION_ENTRYPOINTS, ...discoveredEntrypoints])],
     );
     await writeMinimalFunctionsPackage(
       input.functionsRoot,

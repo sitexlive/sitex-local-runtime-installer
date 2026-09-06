@@ -95,10 +95,18 @@ test('compute source stages Codex Runner and Business Worker without the retired
     await mkdir(path.join(workerRoot, 'src'), { recursive: true });
     await mkdir(path.join(workerRoot, 'bin'), { recursive: true });
     await writeFile(path.join(workerRoot, 'src/business-worker.js'), '// business worker');
-    await writeFile(path.join(workerRoot, 'src/business-worker-runtime.js'), '// business runtime');
+    await writeFile(path.join(workerRoot, 'src/business-worker-runtime.js'), [
+      "require('./local-compute-job-registry');",
+      "const { requireFunctionsModule } = require('./functionsBridge');",
+      "requireFunctionsModule('jobs/item-usage-ranking.js');",
+      "requireFunctionsModule('tasks/taskPolicy');",
+      "requireFunctionsModule('node_modules/<pkg>');",
+      '',
+    ].join('\n'));
+    await writeFile(path.join(workerRoot, 'src/local-compute-job-registry.js'), "loadModule('local-compute/businessJobHandlers.js');\n");
     await writeFile(path.join(workerRoot, 'src/functionsBridge.js'), '// functions bridge');
     await writeFile(path.join(workerRoot, 'src/ai-session-worker.js'), '// retired workflow worker');
-    await writeFile(path.join(workerRoot, 'bin/sitex-business-worker.js'), '// business launcher');
+    await writeFile(path.join(workerRoot, 'bin/sitex-business-worker.js'), "require('../src/business-worker-runtime');\n");
     await writeFile(path.join(workerRoot, 'bin/sitex-ai-agent-worker.js'), '// retired workflow launcher');
     await writeFile(path.join(workerRoot, 'package.json'), '{"dependencies":{}}');
     await mkdir(path.join(codexRunnerRoot, 'src'), { recursive: true });
@@ -120,7 +128,13 @@ test('compute source stages Codex Runner and Business Worker without the retired
       "require('./shared/admin-helper.js');",
       '',
     ].join('\n'));
-    await writeFile(path.join(functionsRoot, 'shared/admin-helper.js'), '// reachable helper');
+    await writeFile(path.join(functionsRoot, 'shared/admin-helper.js'), [
+      '/**',
+      ' * Prose, not a dependency: letting an import "fix" either is how a bug hides.',
+      ' */',
+      '// reachable helper',
+      '',
+    ].join('\n'));
     await writeFile(path.join(functionsRoot, 'firebase/email.smtp.js'), [
       "require('imapflow');",
       "try { require('re2'); } catch {}",
@@ -137,6 +151,10 @@ test('compute source stages Codex Runner and Business Worker without the retired
       '',
     ].join('\n'));
     await writeFile(path.join(functionsRoot, 'local-compute/jobQueue.js'), '// queue');
+    await mkdir(path.join(functionsRoot, 'jobs'), { recursive: true });
+    await writeFile(path.join(functionsRoot, 'jobs/item-usage-ranking.js'), "require('../shared/rank-helper.js');\n");
+    await writeFile(path.join(functionsRoot, 'shared/rank-helper.js'), '// reachable only through a string-loaded module');
+    await writeFile(path.join(functionsRoot, 'local-compute/businessJobHandlers.js'), '// string-loaded by the job registry');
     await writeFile(path.join(functionsRoot, 'email/emailSyncJob.js'), "require('../local-compute/jobQueue.js');\n");
     await writeFile(path.join(functionsRoot, 'email/emailSyncFailureNotification.js'), '// failure notification');
     await writeFile(path.join(functionsRoot, 'recurring/aiSessionHandler.js'), '// retired unrelated worker');
@@ -186,6 +204,15 @@ test('compute source stages Codex Runner and Business Worker without the retired
     await access(path.join(destination, 'functions/shared/email-helper.js'));
     await access(path.join(destination, 'functions/local-compute/jobQueue.js'));
     await access(path.join(destination, 'functions/email/emailSyncJob.js'));
+    // Worker require graph beyond the fixed list, and Functions modules that are
+    // only referenced by string (requireFunctionsModule / loadModule) plus THEIR
+    // closure. Missing lazy targets (tasks/taskPolicy) and the node_modules
+    // placeholder must not fail the stage.
+    await access(path.join(destination, 'src/local-compute-job-registry.js'));
+    await access(path.join(destination, 'functions/jobs/item-usage-ranking.js'));
+    await access(path.join(destination, 'functions/shared/rank-helper.js'));
+    await access(path.join(destination, 'functions/local-compute/businessJobHandlers.js'));
+    await assert.rejects(access(path.join(destination, 'functions/tasks')));
     await access(path.join(destination, 'package-lock.json'));
     await assert.rejects(access(path.join(destination, 'functions/package-lock.json')));
     const stagedStoragePaths = await readFile(
