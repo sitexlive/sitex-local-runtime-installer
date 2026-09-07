@@ -69,6 +69,7 @@ test('MCP source staging vendors local packages and excludes dependencies and se
     assert.equal(packageJson.dependencies['firebase-admin'], '^12.7.0');
     assert.equal(packageJson.dependencies.velopack, undefined);
     await access(path.join(destination, 'vendor/sitex-mcp-core/src/index.js'));
+    assert.equal(await readFile(path.join(destination, '.npmrc'), 'utf8'), 'install-links=true\n');
     await access(path.join(destination, 'src/mcp/stdio.cjs'));
     await access(path.join(destination, 'src/shared/transport.js'));
     await assert.rejects(access(path.join(destination, 'src/business-worker.js')));

@@ -387,6 +387,13 @@ export async function prepareRuntimeSource(input: PrepareRuntimeSourceInput): Pr
     }
     dependencies['@sitex/mcp-core'] = 'file:vendor/sitex-mcp-core';
     dependencies['@sitex/mcp-server'] = 'file:vendor/sitex-mcp-server';
+    // npm links `file:` dependencies, and on Windows those links are junctions
+    // with ABSOLUTE targets. The Host installs into `.installing-<version>` and
+    // renames the directory afterwards, which left every vendored package
+    // dangling ("Cannot find package '@sitex/mcp-core'"). Copying them in
+    // (`install-links`) survives the rename; the lockfile below is generated
+    // under the same setting so `npm ci` accepts it.
+    await writeFile(path.join(input.destination, '.npmrc'), 'install-links=true\n', 'utf8');
   }
   await writeFile(path.join(input.destination, 'package.json'), `${JSON.stringify({
     name: `@sitex/${input.component}-runtime`,
