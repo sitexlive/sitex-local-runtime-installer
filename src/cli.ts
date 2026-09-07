@@ -35,9 +35,29 @@ function textOption(options: Record<string, string>, name: string): string {
   return value;
 }
 
+function windowsCommandArg(value: string): string {
+  return /[\s"&|<>^,;=()]/.test(value) ? `"${value.replace(/"/g, '\\"')}"` : value;
+}
+
+/**
+ * On Windows `gcloud` and `npm` are .cmd shims. Node 22 refuses to spawn those
+ * directly (EINVAL) and a bare name is not found at all (ENOENT), so route the
+ * call through cmd.exe with each argument quoted — `--cache-control` values
+ * carry spaces and commas.
+ */
+function spawnPlan(command: string, args: string[]): { command: string; args: string[]; verbatim: boolean } {
+  if (process.platform !== 'win32') return { command, args, verbatim: false };
+  const executable = /\.(?:exe|cmd|bat)$/i.test(command) || command.includes(path.sep) || command.includes('/')
+    ? command
+    : `${command}.cmd`;
+  const commandLine = [executable, ...args].map(windowsCommandArg).join(' ');
+  return { command: 'cmd.exe', args: ['/d', '/s', '/c', `"${commandLine}"`], verbatim: true };
+}
+
 function run(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: 'inherit' });
+    const plan = spawnPlan(command, args);
+    const child = spawn(plan.command, plan.args, { stdio: 'inherit', windowsVerbatimArguments: plan.verbatim });
     child.once('error', reject);
     child.once('exit', (code, signal) => {
       if (code === 0) resolve();
